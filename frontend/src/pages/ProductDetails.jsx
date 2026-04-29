@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-
+import { Link } from "react-router-dom";
+import { useCart } from "../context/CartContext";
 
 function ProductDetails() {
 
@@ -9,7 +10,7 @@ function ProductDetails() {
     const [product, setProduct] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-
+    const { addToCart } = useCart();
 
     useEffect(() => {
         fetch(`${BASE_URL}/api/products/${id}/`)
@@ -58,15 +59,15 @@ function ProductDetails() {
                         <p className="text-2xl font-semibold text-green-600 mb-6">
                             ${product.price}
                         </p>
-                        <button
+                        <button onClick={() => addToCart(product.id)}
                             className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
                         >
                             Add to Cart 🛒
                         </button>
                         <div className="mt-4">
-                            <a href="/" className="text-blue-600 hover:underline">
+                            <Link to="/" className="text-blue-600 hover:underline">
                                 &larr; Back to Home
-                            </a>
+                            </Link>
                         </div>
                     </div>
                 </div>
