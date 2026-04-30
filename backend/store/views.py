@@ -1,5 +1,8 @@
 from rest_framework import response
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from .serializers import RegisterSerializer, UserSearializer
+from django.contrib.auth.models import User
 from .models import Category, Product, Cart, CartItem, Order, OrderItem
 from .serializers import (
     CategorySerializer,
@@ -35,13 +38,15 @@ def get_categories(request):
 
 
 @api_view(["GET"])
+@permission_classes([IsAuthenticated])
 def get_cart(request):
-    cart, created = Cart.objects.get_or_create(user=None)
+    cart, created = Cart.objects.get_or_create(user=request.user)
     serializer = CartSerializer(cart)
     return response.Response(serializer.data)
 
 
 @api_view(["POST"])
+@permission_classes([IsAuthenticated])
 def add_to_cart(request):
     product_id = request.data.get("product_id")
     if not product_id:
@@ -49,7 +54,7 @@ def add_to_cart(request):
 
     product = get_object_or_404(Product, id=product_id)
 
-    cart, created = Cart.objects.get_or_create(user=None)
+    cart, created = Cart.objects.get_or_create(user=request.user)
     item, created = CartItem.objects.get_or_create(cart=cart, product=product)
     if not created:
         item.quantity += 1
@@ -65,6 +70,7 @@ def add_to_cart(request):
 
 
 @api_view(["POST"])
+@permission_classes([IsAuthenticated])
 def update_cart_quantity(request):
     item_id = request.data.get("item_id")
     quantity = request.data.get("quantity")
@@ -90,6 +96,7 @@ def update_cart_quantity(request):
 
 
 @api_view(["POST"])
+@permission_classes([IsAuthenticated])
 def remove_from_cart(request):
     item_id = request.data.get("item_id")
     CartItem.objects.filter(id=item_id).delete()
@@ -97,6 +104,7 @@ def remove_from_cart(request):
 
 
 @api_view(["POST"])
+@permission_classes([IsAuthenticated])
 def create_order(request):
     try:
         data = request.data
@@ -105,20 +113,22 @@ def create_order(request):
         phone = data.get("phone")
         payment_method = data.get("payment_method", "COD")
 
-        cart = Cart.objects.first()
-        if not cart or not cart.items.exists():
-            return response.Response({"error": "Cart is empty"}, status=400)
-        total = sum(
-            float(item.product.price) * item.quantity for item in cart.items.all()
-        )
+        # Validate Phone Number
+        if not phone.isdigit() or len(phone) < 10:
+            return response.Response({"error": "Invalid phone number"}, status=400)
 
-        # create order
+        # Get User's Cart
+        cart, created = Cart.objects.get_or_create(user=request.user)
+        if not cart.items.exists():
+            return response.Response({"error": "Cart is empty"}, status=400)
+
+        total = sum(item.product.price * item.quantity for item in cart.items.all())
+
         order = Order.objects.create(
-            user=None,
+            user=request.user,
             total_amount=total,
         )
 
-        # create order items
         for item in cart.items.all():
             OrderItem.objects.create(
                 order=order,
@@ -127,11 +137,26 @@ def create_order(request):
                 price=item.product.price,
             )
 
-        # clear cart
+        # Clear the cart
         cart.items.all().delete()
-
         return response.Response(
             {"message": "Order created successfully", "order_id": order.id}, status=201
         )
     except Exception as e:
         return response.Response({"error": str(e)}, status=500)
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def register_view(request):
+    serializer = RegisterSerializer(data=request.data)
+    if serializer.is_valid():
+        user = serializer.save()
+        return response.Response(
+            {
+                "message": "User registered successfully",
+                "user": UserSearializer(user).data,
+            },
+            status=201,
+        )
+    return response.Response(serializer.errors, status=400)
