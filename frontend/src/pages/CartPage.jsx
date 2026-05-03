@@ -6,14 +6,17 @@ function CartPage() {
     const BASEURL = import.meta.env.VITE_DJANGO_BASE_URL || "http://localhost:8000";
     console.log("cartItems:", cartItems);
 
+    // Sort items by ID to maintain consistent order
+    const sortedItems = [...cartItems].sort((a, b) => a.id - b.id);
+
     return (
         <div className="pt-20 min-h-screen bg-gray-100 p-8">
             <h1 className="text-3xl font-bold mb-6 text-center">Your Cart🛒</h1>
-            {cartItems.length === 0 ? (
+            {sortedItems.length === 0 ? (
                 <p className="text-gray-600 text-center">Your cart is empty.</p>
             ) : (
                 <div className="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-md">
-                    {cartItems.map((item) => (
+                    {sortedItems.map((item) => (
                         <div key={item.id} className="flex items-center justify-between mb-4">
 
 
